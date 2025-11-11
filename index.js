@@ -32,22 +32,59 @@ async function run() {
         const db = client.db('userDB')
         const userCollection = db.collection('users')
 
-        app.get('/users', async (req,res)=>{
+        app.get('/users', async (req, res) => {
             const result = await userCollection.find().toArray();
-           
+
             res.send(result)
         });
 
-        app.get('/users/:id',async (req,res)=>{
-            const {id}= req.params
-            const result = await userCollection.findOne({_id:new ObjectId(id)})
+        app.get('/users/:id', async (req, res) => {
+            const { id } = req.params
+            const result = await userCollection.findOne({ _id: new ObjectId(id) })
             res.send(result)
         })
 
+        app.get('/my-users', async (req, res) => {
+            const email = req.query.email;
+            const result = await userCollection.find({ email: email }).toArray()
+            res.send(result);
+        })
+        app.get('/my-users', async (req, res) => {
+            const email = req.query.email;
+            if (!email) return res.status(400).send({ error: "Email is required" });
 
-        app.post('/users',async (req,res)=>{
+            const result = await userCollection.find({ email }).toArray();
+            res.send(result);
+        });
+        app.post('/users', async (req, res) => {
+            const data = req.body;
+            const result = await userCollection.insertOne(data);
+            res.send({ result });
+        });
+
+
+        app.put('/users/:id', async (req, res) => {
+            const id = req.params.id;
+            const updatedData = req.body;
+            const result = await userCollection.updateOne(
+                { _id: new ObjectId(id) },
+                { $set: updatedData }
+            );
+            res.send(result);
+        });
+
+        app.delete('/users/:id', async (req, res) => {
+            const id = req.params.id;
+            const result = await userCollection.deleteOne({ _id: new ObjectId(id) });
+            res.send(result);
+        });
+
+
+
+
+        app.post('/users', async (req, res) => {
             const data = req.body
-           const result = await userCollection.insertOne(data)
+            const result = await userCollection.insertOne(data)
 
             res.send({
                 result
@@ -60,13 +97,13 @@ async function run() {
 
 
 
-    
+
         await client.db("admin").command({ ping: 1 });
         console.log("Pinged your deployment. You successfully connected to MongoDB!");
-         } finally {
-    
+    } finally {
+
         // await client.close();
-         }
+    }
 }
 run().catch(console.dir);
 
