@@ -46,32 +46,31 @@ async function run() {
 
         app.get('/my-users', async (req, res) => {
             const email = req.query.email;
-            const result = await userCollection.find({ email: email }).toArray()
-            res.send(result);
-        })
-        app.get('/my-users', async (req, res) => {
-            const email = req.query.email;
             if (!email) return res.status(400).send({ error: "Email is required" });
-
             const result = await userCollection.find({ email }).toArray();
             res.send(result);
         });
         app.post('/users', async (req, res) => {
             const data = req.body;
+            if (!data.profileimage) {
+                data.profileimage = "https://via.placeholder.com/300x200?text=No+Image";
+            }
             const result = await userCollection.insertOne(data);
             res.send({ result });
         });
 
 
-        app.put('/users/:id', async (req, res) => {
+        app.put('/users/:id', async (req,res)=>{
             const id = req.params.id;
-            const updatedData = req.body;
-            const result = await userCollection.updateOne(
-                { _id: new ObjectId(id) },
-                { $set: updatedData }
-            );
-            res.send(result);
-        });
+            const updatedProfile = req.body;
+            const query = { _id:new ObjectId(id)}
+            const update = {
+                $set:updatedProfile
+            }
+            const result = await userCollection.updateOne(query,update)
+            res.send(result)
+        })
+
 
         app.delete('/users/:id', async (req, res) => {
             const id = req.params.id;
