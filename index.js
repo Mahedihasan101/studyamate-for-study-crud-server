@@ -70,6 +70,18 @@ async function run() {
             const result = await userCollection.updateOne(query,update)
             res.send(result)
         })
+        app.put("/users/:id/request", async (req, res) => {
+      
+        const { id } = req.params;
+
+        const result = await userCollection.findOneAndUpdate(
+          { _id: new ObjectId(id) },
+          { $inc: { partnerCount: 1 } }, 
+          { returnDocument: "after" }
+        );
+
+        res.send(result)
+    });
 
 
         app.delete('/users/:id', async (req, res) => {
@@ -89,12 +101,6 @@ async function run() {
                 result
             })
         })
-
-
-
-
-
-
 
 
         await client.db("admin").command({ ping: 1 });
