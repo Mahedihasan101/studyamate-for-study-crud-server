@@ -22,17 +22,17 @@ const client = new MongoClient(uri, {
 async function run() {
   try {
     await client.connect();
-    const db = client.db("userDB");
-    const userCollection = db.collection("users");
+    const db = client.db("partnerDB");
+    const userCollection = db.collection("partners");
 
     // ✅ Get all users
-    app.get("/users", async (req, res) => {
+    app.get("/partners", async (req, res) => {
       const users = await userCollection.find().toArray();
       res.json(users);
     });
 
     // ✅ Get single user
-    app.get("/users/:id", async (req, res) => {
+    app.get("/partners/:id", async (req, res) => {
       try {
         const user = await userCollection.findOne({
           _id: new ObjectId(req.params.id),
@@ -45,7 +45,7 @@ async function run() {
     });
 
     // ✅ Create new user
-    app.post("/users", async (req, res) => {
+    app.post("/partners", async (req, res) => {
       const data = req.body;
       data.partnerCount = 0;
       data.connections = [];
@@ -54,7 +54,7 @@ async function run() {
     });
 
     // ✅ Send Partner Request (Fixed version)
-    app.put("/users/:id/request", async (req, res) => {
+    app.put("/partners/:id/request", async (req, res) => {
       try {
         const partnerId = req.params.id; // Partner ID
         const { currentUserMongoId } = req.body; // Current User ID
@@ -85,7 +85,7 @@ async function run() {
             $addToSet: {
               connections: { userId: currentUserMongoId, status: "connected" },
             },
-            $inc: { partnerCount: 1, patnerCount: 1 }, // ✅ spelling fix
+            $inc: { partnerCount: 1}, // ✅ spelling fix
           }
         );
 
@@ -102,7 +102,7 @@ async function run() {
     });
 
     // ✅ Get user connections
-    app.get("/users/:id/connections", async (req, res) => {
+    app.get("/partners/:id/connections", async (req, res) => {
       try {
         const { id } = req.params;
         const user = await userCollection.findOne({ _id: new ObjectId(id) });
@@ -125,7 +125,7 @@ async function run() {
     });
 
     // ✅ Remove Connection
-    app.put("/users/:id/remove-connection", async (req, res) => {
+    app.put("/partners/:id/remove-connection", async (req, res) => {
       try {
         const { id } = req.params;
         const { partnerId } = req.body;
