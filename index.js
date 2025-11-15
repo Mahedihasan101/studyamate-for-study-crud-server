@@ -34,9 +34,7 @@ async function run() {
     // ✅ Get single user
     app.get("/partners/:id", async (req, res) => {
       try {
-        const user = await userCollection.findOne({
-          _id: new ObjectId(req.params.id),
-        });
+        const user = await userCollection.findOne({ _id: new ObjectId(req.params.id) });
         if (!user) return res.status(404).json({ message: "User not found" });
         res.json(user);
       } catch {
@@ -53,47 +51,34 @@ async function run() {
       res.json(result);
     });
 
-    // ✅ Send Partner Request (Fixed version)
+    // ✅ Send Partner Request
     app.put("/partners/:id/request", async (req, res) => {
       try {
-        const partnerId = req.params.id; // Partner ID
-        const { currentUserMongoId } = req.body; // Current User ID
+        const partnerId = req.params.id;
+        const { currentUserMongoId } = req.body;
 
-        if (!currentUserMongoId)
-          return res.status(400).json({ message: "currentUserMongoId required" });
-
-        if (partnerId === currentUserMongoId)
-          return res.status(400).json({ message: "Can't connect to yourself" });
+        if (!currentUserMongoId) return res.status(400).json({ message: "currentUserMongoId required" });
+        if (partnerId === currentUserMongoId) return res.status(400).json({ message: "Can't connect to yourself" });
 
         const partnerObjectId = new ObjectId(partnerId);
         const currentUserObjectId = new ObjectId(currentUserMongoId);
 
-        // 1️⃣ Add to current user's connections
+        // Add to current user's connections
         await userCollection.updateOne(
           { _id: currentUserObjectId },
-          {
-            $addToSet: {
-              connections: { userId: partnerId, status: "connected" },
-            },
-          }
+          { $addToSet: { connections: { userId: partnerId, status: "connected" } } }
         );
 
-        // 2️⃣ Add to partner's connections + increment both possible fields
+        // Add to partner's connections + increment partnerCount
         await userCollection.updateOne(
           { _id: partnerObjectId },
-          {
-            $addToSet: {
-              connections: { userId: currentUserMongoId, status: "connected" },
-            },
-            $inc: { partnerCount: 1}, // ✅ spelling fix
+          { 
+            $addToSet: { connections: { userId: currentUserMongoId, status: "connected" } },
+            $inc: { partnerCount: 1 }
           }
         );
 
-        // 3️⃣ Return updated partner info
-        const updatedPartner = await userCollection.findOne({
-          _id: partnerObjectId,
-        });
-
+        const updatedPartner = await userCollection.findOne({ _id: partnerObjectId });
         res.json(updatedPartner);
       } catch (error) {
         console.error("Error sending request:", error);
@@ -101,51 +86,62 @@ async function run() {
       }
     });
 
-    // ✅ Get user connections
-    app.get("/partners/:id/connections", async (req, res) => {
+    // ✅ Cancel Partner Request
+    app.put("/partners/:id/cancel-request", async (req, res) => {
       try {
-        const { id } = req.params;
-        const user = await userCollection.findOne({ _id: new ObjectId(id) });
+        const partnerId = req.params.id;
+        const { currentUserMongoId } = req.body;
 
-        if (!user) return res.status(404).json({ message: "User not found" });
+        if (!currentUserMongoId) return res.status(400).json({ message: "currentUserMongoId required" });
 
-        const connections = user.connections || [];
-        if (connections.length === 0) return res.json([]);
+        const partnerObjectId = new ObjectId(partnerId);
+        const currentUserObjectId = new ObjectId(currentUserMongoId);
 
-        const ids = connections.map((c) => new ObjectId(c.userId));
-        const connectedUsers = await userCollection
-          .find({ _id: { $in: ids } })
-          .toArray();
-
-        res.json(connectedUsers);
-      } catch (error) {
-        console.error("Error fetching connections:", error);
-        res.status(500).json({ message: "Server Error" });
-      }
-    });
-
-    // ✅ Remove Connection
-    app.put("/partners/:id/remove-connection", async (req, res) => {
-      try {
-        const { id } = req.params;
-        const { partnerId } = req.body;
-
+        // Remove connection from current user
         await userCollection.updateOne(
-          { _id: new ObjectId(id) },
+          { _id: currentUserObjectId },
           { $pull: { connections: { userId: partnerId } } }
         );
 
+        // Remove connection from partner + decrement partnerCount safely
         await userCollection.updateOne(
-          { _id: new ObjectId(partnerId) },
-          { $pull: { connections: { userId: id } } }
+          { _id: partnerObjectId },
+          { $pull: { connections: { userId: currentUserMongoId } }, $inc: { partnerCount: -1 } }
         );
 
-        res.json({ message: "Connection removed successfully" });
+        const updatedPartner = await userCollection.findOne({ _id: partnerObjectId });
+        res.json(updatedPartner);
       } catch (error) {
-        console.error("Error removing connection:", error);
-        res.status(500).json({ message: "Server Error" });
+        console.error("Error cancelling request:", error);
+        res.status(500).json({ message: "Internal Server Error" });
       }
     });
+// Update Partner Profile
+app.put("/partners/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+    if (!ObjectId.isValid(id)) {
+      return res.status(400).json({ message: "Invalid user ID" });
+    }
+
+    const updateData = req.body;
+
+    const result = await userCollection.findOneAndUpdate(
+      { _id: new ObjectId(id) },
+      { $set: updateData },
+      { returnDocument: "after" }
+    );
+
+    if (!result.value) return res.status(404).json({ message: "User not found" });
+
+    res.json(result.value);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Error updating profile" });
+  }
+});
+
+
 
     console.log("✅ MongoDB connected successfully!");
   } catch (error) {
